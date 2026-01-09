@@ -67,7 +67,7 @@ async def run():
     
     parameter_a = 5.0
     parameter_b = 3.5
-    height_z = -5.0
+    height_z = -3.5
     circle_times = 30
     total_time = circle_times * 2
     target_x = 0.0
