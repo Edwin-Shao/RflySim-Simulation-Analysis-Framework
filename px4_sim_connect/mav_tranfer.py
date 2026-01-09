@@ -42,7 +42,23 @@ async def telemetry_loop(drone, ue):
             windowID=-1
         )
         
-        await asyncio.sleep(0.03)
+        ue_data = ue.getUE4Pos(1)
+        
+        if ue_data[3] == 1:
+            ue_pos_x = ue_data[0]
+            ue_pos_y = ue_data[1]
+            ue_pos_z = ue_data[2]
+            
+            err_x = current_pos[0] - ue_pos_x
+            err_y = current_pos[1] - ue_pos_y
+            err_z = current_pos[2] - ue_pos_z
+            
+            total_error = math.sqrt(err_x**2 + err_y**2 + err_z**2)
+            
+            if total_error > 0.1:
+                print(f"误差为：{total_error:.2f}m")
+
+        await asyncio.sleep(1/30)
 
 async def update_position(drone, pos_ref):
     async for odom in drone.telemetry.position_velocity_ned():
