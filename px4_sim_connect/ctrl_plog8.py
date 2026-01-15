@@ -22,7 +22,7 @@ import math
 
 async def run():
     print('开始连接Mavsdk')
-    drone = System()
+    drone = System(port = 50052)
     target_port = 14540
     
     print(f"正在监听 UDP {target_port} 等待连接...")

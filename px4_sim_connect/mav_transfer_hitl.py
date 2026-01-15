@@ -1,5 +1,4 @@
-"这个是实飞的版本，主要是为了记录真实飞行器的位姿数据，同时将数据传输给UE4进行仿真显示"
-"方向为ned"
+"这个是硬件在环的版本，主要是为了记录真实飞行器的位姿数据，同时将数据传输给UE4进行仿真显示"
 import asyncio
 import sys
 import math
@@ -12,7 +11,8 @@ import UE4CtrlAPI as UE4CtrlAPI
 
 LISTEN_PORT = 14541 
 
-real_pos = [0.0, 0.0, 0.0]
+real_pos = [-2.199, 1.095, -7.802]
+
 
 async def run():
 
