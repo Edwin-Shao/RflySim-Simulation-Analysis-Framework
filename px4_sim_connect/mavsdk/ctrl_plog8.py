@@ -65,17 +65,24 @@ async def run():
         await drone.action.disarm()
         return
     
-    parameter_a = 5.0
-    parameter_b = 3.5
-    height_z = -3.5
+
+    
+    print("-- Taking off")
+    await drone.action.takeoff()
+    await asyncio.sleep(0.5)
+
+    parameter_a = 2.0
+    parameter_b = 1.5
+    height_z = -2.5
     circle_times = 30
     total_time = circle_times * 2
     target_x = 0.0
     target_y = 0.0
 
-    await drone.offboard.set_position_ned(
-            PositionNedYaw(0.0, 0.0, height_z, 0.0))
-    await asyncio.sleep(10)
+    for _ in range(10):
+        await drone.offboard.set_position_ned(
+                PositionNedYaw(0.0, 0.0, height_z, 0.0))
+        await asyncio.sleep(10)
 
     start_time = time.time()
 
@@ -85,9 +92,9 @@ async def run():
         target_y = parameter_b * math.cos(
             (time.time() - start_time) / circle_times * 2 * math.pi ) * math.sin(
                  (time.time() - start_time) / circle_times * 2 * math.pi )
-
-        await drone.offboard.set_position_ned(
-            PositionNedYaw(target_x, target_y, height_z, 0.0))
+        for _ in range(10):
+            await drone.offboard.set_position_ned(
+                PositionNedYaw(target_x, target_y, height_z, 0.0))
         await asyncio.sleep(0.1)
 
     await drone.offboard.set_position_ned(
