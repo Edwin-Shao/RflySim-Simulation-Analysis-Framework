@@ -9,7 +9,6 @@ UE_REQ_TYPE = 1
 UE_TARGET_ID = 1
 
 LISTEN_IP = "0.0.0.0"
-# LISTEN_IP = "192.168.3.21"
 LISTEN_PORT = 16520
 
 ue = UE4CtrlAPI.UE4CtrlAPI()
@@ -48,8 +47,7 @@ while running:
 
     if mtype != "step":
         continue
-    
-    print(msg)
+
 
     target = msg.get("pos", [0.0, 0.0, 0.0])
     posE = target[:3]

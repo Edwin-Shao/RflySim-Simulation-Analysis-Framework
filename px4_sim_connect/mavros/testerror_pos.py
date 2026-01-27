@@ -2,14 +2,11 @@ import json
 import math
 import matplotlib.pyplot as plt
 
-# sitl1_JSON = r"D:\code\NIMTE\rflysim\flylog\UE_20260120_171237.json"
-sitl1_JSON = r"D:\code\NIMTE\rflysim\flylog\UE_20260122_141619.json"
-hitl1_JSON = r"D:\code\NIMTE\rflysim\flylog\FC_20260123_094956.json"
-# hitl1_JSON = r"D:\code\NIMTE\rflysim\flylog\UE_20260122_142455.json"
-real1_JSON = r"D:\code\NIMTE\rflysim\flylog\FC_20260122_151843.json"
+sitl1_JSON = r"D:\code\NIMTE\rflysim\flylog\FC_20260126_sitl1.json"
+hitl1_JSON = r"D:\code\NIMTE\rflysim\flylog\FC_20260126_hitl1.json"
+real1_JSON = r"D:\code\NIMTE\rflysim\flylog\FC_20260126_lidar2.json"
 
-ROUND_N = 4
-
+ROUND_N = 5
 
 def load(path):
     with open(path, "r", encoding="utf-8") as f:
@@ -20,25 +17,14 @@ def load(path):
         data.sort(key=lambda x: x.get("t", 0.0))
     return data
 
-
-def target_key(row):
-    tgt = row.get("target", None)
-    if not tgt or len(tgt) < 3:
-        return None
-    return tuple(round(float(v), ROUND_N) for v in tgt[:3])
-
-
 def wrap_deg(d):
     return (d + 180.0) % 360.0 - 180.0
 
-
 def att_err_mag_deg(actual_att_deg, target_yaw_deg):
-    # 期望姿态：[0, 0, target_yaw]
     dr = float(actual_att_deg[0]) - 0.0
     dp = float(actual_att_deg[1]) - 0.0
     dy = wrap_deg(float(actual_att_deg[2]) - float(target_yaw_deg))
     return math.sqrt(dr * dr + dp * dp + dy * dy)
-
 
 def mean_and_rms(errors):
     if not errors:
@@ -47,84 +33,67 @@ def mean_and_rms(errors):
     rms_e = math.sqrt(sum(e * e for e in errors) / len(errors))
     return mean_e, rms_e
 
-
 def fmt_stat(mean_v, rms_v, nd=3):
     if mean_v is None or rms_v is None:
         return "n/a"
     return f"mean={mean_v:.{nd}f}  rms={rms_v:.{nd}f}"
 
-
 def set_axes_equal_3d(ax):
     x_limits = ax.get_xlim3d()
     y_limits = ax.get_ylim3d()
     z_limits = ax.get_zlim3d()
-
     x_range = abs(x_limits[1] - x_limits[0])
     x_middle = (x_limits[1] + x_limits[0]) / 2.0
     y_range = abs(y_limits[1] - y_limits[0])
     y_middle = (y_limits[1] + y_limits[0]) / 2.0
     z_range = abs(z_limits[1] - z_limits[0])
     z_middle = (z_limits[1] + z_limits[0]) / 2.0
-
     plot_radius = 0.5 * max(x_range, y_range, z_range)
     ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
     ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
     ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
+def get_xyz(pos):
+    if isinstance(pos, list) and len(pos) > 0 and isinstance(pos[0], list):
+        return pos[0]
+    return pos
 
 def main():
     sitl1 = load(sitl1_JSON)
     hitl1 = load(hitl1_JSON)
     real1 = load(real1_JSON)
 
-    # 为 hitl1 / real1 建桶：key=target(x,y,z)，value=list(rows)
-    buckets_hitl = {}
-    for r in hitl1:
-        k = target_key(r)
-        if k is None:
-            continue
-        buckets_hitl.setdefault(k, []).append(r)
-
-    buckets_real = {}
-    for r in real1:
-        k = target_key(r)
-        if k is None:
-            continue
-        buckets_real.setdefault(k, []).append(r)
+    # 按k索引
+    hitl1_by_k = {r['k']: r for r in hitl1 if 'k' in r}
+    real1_by_k = {r['k']: r for r in real1 if 'k' in r}
 
     matched = []
     miss_hitl = 0
     miss_real = 0
     miss_any = 0
 
-    # 以 sitl1 为基准，只保留三者都存在的 target（交集）
     for r_sitl in sitl1:
-        k = target_key(r_sitl)
+        k = r_sitl.get('k', None)
         if k is None:
             continue
-
-        qh = buckets_hitl.get(k, None)
-        if not qh:
+        r_hitl = hitl1_by_k.get(k, None)
+        r_real = real1_by_k.get(k, None)
+        if r_hitl is None:
             miss_hitl += 1
             miss_any += 1
             continue
-
-        qr = buckets_real.get(k, None)
-        if not qr:
+        if r_real is None:
             miss_real += 1
             miss_any += 1
             continue
-
-        r_hitl = qh.pop(0)
-        r_real = qr.pop(0)
         matched.append((r_sitl, r_hitl, r_real))
 
     print(f"sitl1 entries: {len(sitl1)}")
     print(f"hitl1 entries: {len(hitl1)}")
     print(f"real1 entries: {len(real1)}")
-    print(f"matched (sitl∩hitl∩real) by target: {len(matched)}")
-    print(f"missing in hitl1 (wrt sitl targets): {miss_hitl}")
-    print(f"missing in real1 (wrt sitl targets): {miss_real}")
+    print(f"matched (by k): {len(matched)}")
+    print(f"missing in hitl1 (wrt sitl k): {miss_hitl}")
+    print(f"missing in real1 (wrt sitl k): {miss_real}")
     print(f"missing in any (skipped): {miss_any}")
 
     # 轨迹数据
@@ -151,18 +120,23 @@ def main():
         tgt = rs.get("target", None)
         if not tgt or len(tgt) < 4:
             continue
-        tgt_pos = [float(tgt[0]), float(tgt[1]), float(tgt[2])]
+        tgt_pos = [round(float(tgt[0]), ROUND_N), round(float(tgt[1]), ROUND_N), round(float(tgt[2]), ROUND_N)]
         tgt_yaw = float(tgt[3])
 
-        ps = rs.get("pos", None)
-        ph = rh.get("pos", None)
-        pr = rr.get("pos", None)
+        ps = get_xyz(rs.get("pos", None))
+        ph = get_xyz(rh.get("pos", None))
+        pr = get_xyz(rr.get("pos", None))
 
         as_ = rs.get("att_deg", None)
         ah_ = rh.get("att_deg", None)
         ar_ = rr.get("att_deg", None)
 
-        if ps is None or ph is None or pr is None:
+        if (
+            ps is None or ph is None or pr is None
+            or not isinstance(ps, (list, tuple)) or len(ps) < 3
+            or not isinstance(ph, (list, tuple)) or len(ph) < 3
+            or not isinstance(pr, (list, tuple)) or len(pr) < 3
+        ):
             continue
 
         # 轨迹
@@ -175,15 +149,15 @@ def main():
         ks.append(k_plot)
 
         # 分量误差
-        dsx = math.fabs(float(ps[0]) - tgt_pos[0])
-        dsy = math.fabs(float(ps[1]) - tgt_pos[1])
-        dsz = math.fabs(float(ps[2]) - tgt_pos[2])
-        dhx = math.fabs(float(ph[0]) - tgt_pos[0])
-        dhy = math.fabs(float(ph[1]) - tgt_pos[1])
-        dhz = math.fabs(float(ph[2]) - tgt_pos[2])
-        drx = math.fabs(float(pr[0]) - tgt_pos[0])
-        dry = math.fabs(float(pr[1]) - tgt_pos[1])
-        drz = math.fabs(float(pr[2]) - tgt_pos[2])
+        dsx = float(ps[0]) - tgt_pos[0]
+        dsy = float(ps[1]) - tgt_pos[1]
+        dsz = float(ps[2]) - tgt_pos[2]
+        dhx = float(ph[0]) - tgt_pos[0]
+        dhy = float(ph[1]) - tgt_pos[1]
+        dhz = float(ph[2]) - tgt_pos[2]
+        drx = float(pr[0]) - tgt_pos[0]
+        dry = float(pr[1]) - tgt_pos[1]
+        drz = float(pr[2]) - tgt_pos[2]
 
         s_dx.append(dsx); s_dy.append(dsy); s_dz.append(dsz)
         h_dx.append(dhx); h_dy.append(dhy); h_dz.append(dhz)
@@ -355,20 +329,6 @@ def main():
     fig_xyz.tight_layout()
 
     plt.show()
-
-    # 单独画 real1 的三维轨迹
-    fig_real = plt.figure()
-    ax_real = fig_real.add_subplot(111, projection="3d")
-    ax_real.plot(rx, ry, rz, "g-", linewidth=1.2, label="real1")
-    ax_real.set_title("real1 3D Trajectory")
-    ax_real.set_xlabel("X (N)")
-    ax_real.set_ylabel("Y (E)")
-    ax_real.set_zlabel("Z (D)")
-    ax_real.legend()
-    ax_real.grid(True, linestyle="--", alpha=0.4)
-
-    plt.show()
-
 
 if __name__ == "__main__":
     main()

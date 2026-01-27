@@ -1,136 +1,159 @@
-import json, math
+import json
+import numpy as np
 import matplotlib.pyplot as plt
+from pathlib import Path
 
-FC_JSON = r"D:\code\NIMTE\rflysim\flylog\UE_20260120_101742.json"
-UE_JSON = r"D:\code\NIMTE\rflysim\flylog\UE_20260120_102041.json"
-
-MAX_DT = 1
-USE_INTERP = False
-
-T_START = 3.0
-T_END   = None   # 无限制： None
-
-def wrap_deg(d):
-    if d > 180: d -= 360
-    elif d < -180: d += 360
-    return d
-
-def interp_angle(a0, a1, w):
-    return wrap_deg(a0 + w * wrap_deg(a1 - a0))
-
-def load(path):
-    with open(path, "r", encoding="utf-8") as f:
+def load_json(path):
+    with open(path, 'r') as f:
         data = json.load(f)
-    data.sort(key=lambda x: x["t"])
+    # 兼容单条或多条数据
+    if isinstance(data, dict):
+        data = [data]
     return data
 
-def match_by_time(data, t, use_interp):
-    """
-    在 data(按 t 排序) 中，用二分找最接近 t 的样本。
-    - use_interp=False: 最近邻
-    - use_interp=True : 用左右两帧线性插值到 t（yaw 做环绕插值）
-    返回 (dt, sample) 或 None
-    """
-    if not data:
-        return None
+def extract(data):
+    def get_pos(d):
+        p = d['pos']
+        if isinstance(p, list) and len(p) > 0 and isinstance(p[0], list):
+            return p[0]
+        return p
+    pos = np.array([get_pos(d) for d in data])
+    target = np.array([d['target'] for d in data])
+    att = np.array([d['att_deg'] for d in data])
+    t = np.array([d['t'] for d in data])
+    return t, pos, target, att
 
-    lo, hi = 0, len(data)
-    while lo < hi:
-        mid = (lo + hi) // 2
-        if data[mid]["t"] < t:
-            lo = mid + 1
-        else:
-            hi = mid
-    j = lo
+def calc_errors(pos, target, att):
+    pos_err = pos - target[:, :3]  # 只取target的前三个分量
+    pos_err_norm = np.linalg.norm(pos_err, axis=1)
+    att_err = att  # 与0比较
+    att_err_norm = np.linalg.norm(att, axis=1)
+    return pos_err, pos_err_norm, att_err, att_err_norm
 
-    if j == 0:
-        dt = abs(data[0]["t"] - t)
-        return (dt, data[0]) if dt <= MAX_DT else None
-    if j >= len(data):
-        dt = abs(data[-1]["t"] - t)
-        return (dt, data[-1]) if dt <= MAX_DT else None
+def plot_all(ts, poss, targets, pos_errs, pos_err_norms, att_errs, att_err_norms, labels):
+    # 轨迹
+    fig = plt.figure(figsize=(15,10))
+    ax = fig.add_subplot(221, projection='3d')
+    for pos, target, label in zip(poss, targets, labels):
+        ax.plot(pos[:,0], pos[:,1], pos[:,2], label=f'{label} pos')
+        ax.plot(target[:,0], target[:,1], target[:,2], '--', label=f'{label} target')
+    ax.set_title('3D Trajectory')
+    ax.legend()
+    # 使三个轴刻度一致
+    all_targets3 = [t[:, :3] for t in targets]
+    all_pos = np.concatenate(poss + all_targets3, axis=0)
+    xyz_min = all_pos.min(axis=0)
+    xyz_max = all_pos.max(axis=0)
+    xyz_range = xyz_max - xyz_min
+    max_range = xyz_range.max()
+    mid = (xyz_max + xyz_min) / 2
+    for i, axis in enumerate(['x', 'y', 'z']):
+        getattr(ax, f'set_{axis}lim')(mid[i] - max_range/2, mid[i] + max_range/2)
+    try:
+        ax.set_box_aspect([1,1,1])
+    except Exception:
+        pass  # 低版本matplotlib不支持
 
-    a = data[j - 1]
-    b = data[j]
-    t0, t1 = a["t"], b["t"]
+    # 位置误差
+    plt.subplot(222)
+    for t, pos_err_norm, label in zip(ts, pos_err_norms, labels):
+        plt.plot(t, pos_err_norm, label=label)
+        # 标注最大和均值
+        max_idx = np.argmax(pos_err_norm)
+        plt.annotate(f"max={pos_err_norm[max_idx]:.3f}", (t[max_idx], pos_err_norm[max_idx]),
+                     textcoords="offset points", xytext=(0,10), ha='center', fontsize=8, color='red')
+        mean_val = np.mean(pos_err_norm)
+        plt.annotate(f"mean={mean_val:.3f}", (t[len(t)//2], mean_val),
+                     textcoords="offset points", xytext=(0,10), ha='center', fontsize=8, color='blue')
+    plt.title('Position Error (Euclidean)')
+    plt.xlabel('t')
+    plt.ylabel('Error (m)')
+    plt.legend()
 
-    if (not use_interp) or (t1 <= t0):
-        da = abs(t - t0)
-        db = abs(t1 - t)
-        pick = a if da <= db else b
-        dt = min(da, db)
-        return (dt, pick) if dt <= MAX_DT else None
+    # 位置分量误差
+    plt.subplot(223)
+    for t, pos_err, label in zip(ts, pos_errs, labels):
+        for i, comp in enumerate('xyz'):
+            plt.plot(t, pos_err[:,i], label=f'{label} {comp}')
+            # 标注最大
+            max_idx = np.argmax(np.abs(pos_err[:,i]))
+            plt.annotate(f"max={pos_err[max_idx,i]:.3f}", (t[max_idx], pos_err[max_idx,i]),
+                         textcoords="offset points", xytext=(0,8), ha='center', fontsize=7)
+    plt.title('Position Component Error')
+    plt.xlabel('t')
+    plt.ylabel('Error (m)')
+    plt.legend(fontsize=8)
 
-    w = (t - t0) / (t1 - t0)
-    dt = max(abs(t - t0), abs(t1 - t))
-    if dt > MAX_DT:
-        return None
+    # 姿态误差
+    plt.subplot(224)
+    for t, att_err_norm, label in zip(ts, att_err_norms, labels):
+        plt.plot(t, att_err_norm, label=label)
+        max_idx = np.argmax(att_err_norm)
+        plt.annotate(f"max={att_err_norm[max_idx]:.2f}", (t[max_idx], att_err_norm[max_idx]),
+                     textcoords="offset points", xytext=(0,10), ha='center', fontsize=8, color='red')
+        mean_val = np.mean(att_err_norm)
+        plt.annotate(f"mean={mean_val:.2f}", (t[len(t)//2], mean_val),
+                     textcoords="offset points", xytext=(0,10), ha='center', fontsize=8, color='blue')
+    plt.title('Attitude Error (deg)')
+    plt.xlabel('t')
+    plt.ylabel('Error (deg)')
+    plt.legend()
 
-    p0, p1 = a["pos"], b["pos"]
-    r0, r1 = a["att_deg"], b["att_deg"]
-
-    pos = [p0[i] + w * (p1[i] - p0[i]) for i in range(3)]
-    att = [
-        r0[0] + w * (r1[0] - r0[0]),
-        r0[1] + w * (r1[1] - r0[1]),
-        interp_angle(r0[2], r1[2], w),
-    ]
-    return dt, {"t": t, "pos": pos, "att_deg": att}
-
-def main():
-    fc = load(FC_JSON)
-    ue = load(UE_JSON)
-
-    ts = []
-    pos_rms = []
-    att_rms = []
-    dts_ms = []
-
-    for u in ue:
-        t = u["t"]
-        if T_START is not None and t < T_START:
-            continue
-        if T_END is not None and t > T_END:
-            break
-        m = match_by_time(fc, t, USE_INTERP)
-        if not m:
-            continue
-        dt, f = m
-
-        fp = f["pos"]; up = u["pos"]
-        fa = f["att_deg"]; ua = u["att_deg"]
-
-        dx = fp[0] - up[0]
-        dy = fp[1] - up[1]
-        dz = fp[2] - up[2]
-        perr = math.sqrt(dx*dx + dy*dy + dz*dz)
-
-        dr = fa[0] - ua[0]
-        dp = fa[1] - ua[1]
-        dyaw = wrap_deg(fa[2] - ua[2])
-        aerr = math.sqrt(dr*dr + dp*dp + dyaw*dyaw)
-
-        ts.append(t)
-        pos_rms.append(perr)
-        att_rms.append(aerr)
-        dts_ms.append(dt * 1000.0)
-
-    print(f"matched: {len(ts)} / {len(ue)}")
-    if dts_ms:
-        print(f"dt avg(ms): {sum(dts_ms)/len(dts_ms):.2f}  max(ms): {max(dts_ms):.2f}")
-
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 7), sharex=True)
-    ax1.plot(ts, pos_rms, "b-")
-    ax1.set_ylabel("Position RMS (m)")
-    ax1.grid(True, linestyle="--", alpha=0.6)
-
-    ax2.plot(ts, att_rms, "r-")
-    ax2.set_ylabel("Attitude RMS (deg)")
-    ax2.set_xlabel("t (s, perf)")
-    ax2.grid(True, linestyle="--", alpha=0.6)
-
-    fig.suptitle(f"UE->FC match  max_dt={MAX_DT*1000:.1f}ms  interp={USE_INTERP}")
+    plt.tight_layout()
     plt.show()
 
-if __name__ == "__main__":
-    main()
+    # 位置误差
+    plt.subplot(222)
+    for t, pos_err_norm, label in zip(ts, pos_err_norms, labels):
+        plt.plot(t, pos_err_norm, label=label)
+    plt.title('Position Error (Euclidean)')
+    plt.xlabel('t')
+    plt.ylabel('Error (m)')
+    plt.legend()
+
+    # 位置分量误差
+    plt.subplot(223)
+    for t, pos_err, label in zip(ts, pos_errs, labels):
+        plt.plot(t, pos_err[:,0], label=f'{label} x')
+        plt.plot(t, pos_err[:,1], label=f'{label} y')
+        plt.plot(t, pos_err[:,2], label=f'{label} z')
+    plt.title('Position Component Error')
+    plt.xlabel('t')
+    plt.ylabel('Error (m)')
+    plt.legend()
+
+    # 姿态误差
+    plt.subplot(224)
+    for t, att_err_norm, label in zip(ts, att_err_norms, labels):
+        plt.plot(t, att_err_norm, label=label)
+    plt.title('Attitude Error (deg)')
+    plt.xlabel('t')
+    plt.ylabel('Error (deg)')
+    plt.legend()
+
+    plt.tight_layout()
+    plt.show()
+
+if __name__ == '__main__':
+    # 替换为你的三个文件路径
+    files = [
+        'D:\\code\\NIMTE\\rflysim\\flylog\\FC_20260126_hitl1.json',
+        'D:\\code\\NIMTE\\rflysim\\flylog\\FC_20260126_lidar1.json',
+        'D:\\code\\NIMTE\\rflysim\\flylog\\FC_20260126_sitl1.json'
+    ]
+    labels = ['hitl1', 'lidar1', 'sitl1']
+    ts, poss, targets, att_s = [], [], [], []
+    pos_errs, pos_err_norms, att_errs, att_err_norms = [], [], [], []
+    for f in files:
+        data = load_json(f)
+        t, pos, target, att = extract(data)
+        pos_err, pos_err_norm, att_err, att_err_norm = calc_errors(pos, target, att)
+        ts.append(t)
+        poss.append(pos)
+        targets.append(target)
+        att_s.append(att)
+        pos_errs.append(pos_err)
+        pos_err_norms.append(pos_err_norm)
+        att_errs.append(att_err)
+        att_err_norms.append(att_err_norm)
+    plot_all(ts, poss, targets, pos_errs, pos_err_norms, att_errs, att_err_norms, labels)

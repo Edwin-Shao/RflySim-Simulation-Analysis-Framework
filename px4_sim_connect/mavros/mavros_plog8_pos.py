@@ -20,7 +20,7 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 mav = PX4MavCtrl.PX4MavCtrler() 
 time.sleep(1)
 
-height_z = -2.5
+height_z = -1.5
 
 os.makedirs(LOG_DIR, exist_ok=True)
 tag = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -99,8 +99,8 @@ print("Rate", mav.uavAngRate)
 time.sleep(1)
 print("Start control.")
 
-parameter_a = 2.0
-parameter_b = 1.5
+parameter_a = 3.0
+parameter_b = 2.0
 circle_times = 30.0
 total_time = circle_times * 2.0
 center_n = local_n
@@ -124,7 +124,8 @@ while (time.perf_counter() - t0) < total_time:
         "dt": DT,
         "t": t_cmd,
         "pos": [ue_pos[0] - local_n, ue_pos[1] - local_e, height_z - spos[2]],
-        "att_deg": _maybe_rad_to_deg3(getattr(mav, "uavAngEular", None)),
+        # "att_deg": _maybe_rad_to_deg3(getattr(mav, "uavAngEular", None)),
+        "att_deg": mav.uavAngEular[:],
         "ts": time.time(),
     }
     sock.sendto(json.dumps(msg).encode("utf-8"), (TARGET_UDP_IP, TARGET_UDP_PORT))
@@ -135,7 +136,9 @@ while (time.perf_counter() - t0) < total_time:
         "t": t_cmd,
         "target": [target_n - local_n, target_e - local_e, height_z, target_yaw],
         "pos": [(mav.uavPosNED[0] - local_n, mav.uavPosNED[1] - local_e, mav.uavPosNED[2] - spos[2])],
-        "att_deg": _maybe_rad_to_deg3(getattr(mav, "uavAngEular", None)),
+        # "att_deg": _maybe_rad_to_deg3(getattr(mav, "uavAngEular", None)),
+        "att_deg": mav.uavAngEular[:],
+
         "ts": time.time(),
     })
 
@@ -152,41 +155,6 @@ while (time.perf_counter() - t0) < total_time:
         time.sleep(sleep_s)
 
 SendRealPosNED(local_n, local_e, height_z + spos[2], 0)
-hold_steps = int(5.0 / DT)
-for _ in range(hold_steps):
-    t_cmd = k * DT
-    msg = {
-        "type": "step",
-        "k": k,
-        "dt": DT,
-        "t": t_cmd,
-        "target": [0.0, 0.0, height_z, 0.0],
-        "ts": time.time(),
-    }
-    sock.sendto(json.dumps(msg).encode("utf-8"), (TARGET_UDP_IP, TARGET_UDP_PORT))
-
-    fc_log.append({
-        "k": k,
-        "dt": DT,
-        "t": t_cmd,
-        "target": [0.0, 0.0, height_z, 0.0],
-        "pos": mav.uavPosNED,
-        "att_deg": _maybe_rad_to_deg3(getattr(mav, "uavAngEular", None)),
-        "ts": time.time(),
-    })
-
-    now = time.time()
-    if now - _last_save >= SAVE_EVERY_S:
-        _flush_fc()
-        _last_save = now
-
-    k += 1
-    time.sleep(DT)
-
-sock.sendto(
-    json.dumps({"type": "end", "k_end": k - 1, "ts": time.time()}).encode("utf-8"),
-    (TARGET_UDP_IP, TARGET_UDP_PORT)
-)
 
 _flush_fc()
 
