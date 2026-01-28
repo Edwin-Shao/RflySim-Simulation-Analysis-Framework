@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 
 sitl1_JSON = r"D:\code\NIMTE\rflysim\flylog\FC_20260127_sitl1.json"
 hitl1_JSON = r"D:\code\NIMTE\rflysim\flylog\FC_20260126_hitl1.json"
-real1_JSON = r"D:\code\NIMTE\rflysim\flylog\FC_20260126_lidar1.json"
+real1_JSON = r"D:\code\NIMTE\rflysim\flylog\FC_20260126_lidar1" \
+".json"
 
 def load(path):
     with open(path, "r", encoding="utf-8") as f:

@@ -20,24 +20,11 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 mav = PX4MavCtrl.PX4MavCtrler() 
 time.sleep(1)
 
-height_z = -1.5
-
 os.makedirs(LOG_DIR, exist_ok=True)
 tag = datetime.now().strftime("%Y%m%d_%H%M%S")
 fc_path = os.path.join(LOG_DIR, f"FC_{tag}.json")
 fc_log = []
 _last_save = time.time()
-
-
-def _maybe_rad_to_deg3(euler3):
-    if euler3 is None or len(euler3) < 3:
-        return None
-    x, y, z = float(euler3[0]), float(euler3[1]), float(euler3[2])
-    # 简单判断：都很小一般是弧度
-    if max(abs(x), abs(y), abs(z)) < 3.2:
-        return [math.degrees(x), math.degrees(y), math.degrees(z)]
-    return [x, y, z]
-
 
 def _flush_fc():
     with open(fc_path, "w", encoding="utf-8") as f:
@@ -71,6 +58,7 @@ def SendRealPosNED(n, e, d, yaw):
     """
     mav.SendPosNED(e, -n, d, yaw)
 
+height_z = -1.5 # 高度
 
 print("进入offboard并解锁")
 
@@ -99,11 +87,12 @@ print("Rate", mav.uavAngRate)
 time.sleep(1)
 print("Start control.")
 
-parameter_a = 3.0
-parameter_b = 2.0
-circle_times = 30.0
-total_time = circle_times * 2.0
-center_n = local_n
+parameter_a = 3.0 # 北向半径
+parameter_b = 2.0 # 东向半径
+circle_times = 30.0 # 单圈时间
+laps = 2 # 圈数
+total_time = circle_times * laps
+center_n = local_n 
 center_e = local_e
 
 t0 = time.perf_counter()
@@ -117,14 +106,12 @@ while (time.perf_counter() - t0) < total_time:
     SendRealPosNED(target_n, target_e, height_z + spos[2], target_yaw)
 
     ue_pos = mav.uavPosNED
-
     msg = {
         "type": "step",
         "k": k,
         "dt": DT,
         "t": t_cmd,
         "pos": [ue_pos[0] - local_n, ue_pos[1] - local_e, height_z - spos[2]],
-        # "att_deg": _maybe_rad_to_deg3(getattr(mav, "uavAngEular", None)),
         "att_deg": mav.uavAngEular[:],
         "ts": time.time(),
     }
@@ -136,9 +123,7 @@ while (time.perf_counter() - t0) < total_time:
         "t": t_cmd,
         "target": [target_n - local_n, target_e - local_e, height_z, target_yaw],
         "pos": [(mav.uavPosNED[0] - local_n, mav.uavPosNED[1] - local_e, mav.uavPosNED[2] - spos[2])],
-        # "att_deg": _maybe_rad_to_deg3(getattr(mav, "uavAngEular", None)),
         "att_deg": mav.uavAngEular[:],
-
         "ts": time.time(),
     })
 
