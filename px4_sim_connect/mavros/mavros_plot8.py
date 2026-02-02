@@ -7,13 +7,19 @@ import os
 from datetime import datetime
 
 TARGET_UDP_IP = "127.0.0.1"
+# TARGET_UDP_IP = "192.168.3.20"
 TARGET_UDP_PORT = 16520
-
 LOG_DIR = r"/mnt/d/code/NIMTE/rflysim/flylog"
+# LOG_DIR = os.path.expanduser("~/rsim_ws/log")
 SAVE_EVERY_S = 5.0
 
-DT = 0.1
+DT = 0.02
 k = 0
+parameter_a = 3.0 # 北向半径
+parameter_b = 2.0 # 东向半径
+circle_times = 30.0 # 单圈时间
+laps = 2 # 圈数
+height_z = -1.5 # 高度
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -58,8 +64,6 @@ def SendRealPosNED(n, e, d, yaw):
     """
     mav.SendPosNED(e, -n, d, yaw)
 
-height_z = -1.5 # 高度
-
 print("进入offboard并解锁")
 
 mav.initOffboard()
@@ -71,7 +75,18 @@ local_e = spos[1]
 print("初始位置:", spos)
 print("发送起飞命令")
 SendRealPosNED(local_n, local_e, height_z + spos[2], 0)
-time.sleep(5)
+
+t_takeoff = 10.0
+for _ in range(int(t_takeoff / DT)):
+    ue_pos = mav.uavPosNED
+    ue_z = ue_pos[2] - spos[2]
+    msg = {
+        "pos": [ue_pos[0] - local_n, ue_pos[1] - local_e, ue_z],
+        "att_deg": mav.uavAngEular[:],
+        "ts": time.time(),
+    }
+    sock.sendto(json.dumps(msg).encode("utf-8"), (TARGET_UDP_IP, TARGET_UDP_PORT))
+    time.sleep(DT)
 
 sock.sendto(
     json.dumps({"type": "start", "dt": DT, "ts": time.time()}).encode("utf-8"),
@@ -84,20 +99,16 @@ print("Euler", mav.uavAngEular)
 print("Quaternion", mav.uavAngQuatern)
 print("Rate", mav.uavAngRate)
 
-time.sleep(1)
 print("Start control.")
 
-parameter_a = 3.0 # 北向半径
-parameter_b = 2.0 # 东向半径
-circle_times = 30.0 # 单圈时间
-laps = 2 # 圈数
+
 total_time = circle_times * laps
 center_n = local_n 
 center_e = local_e
 
 t0 = time.perf_counter()
 
-while (time.perf_counter() - t0) < total_time:
+while (time.perf_counter() - t0) < total_time + DT:
     t_cmd = k * DT
 
     target_n, target_e = generate8(center_n, center_e, parameter_a, parameter_b, t_cmd, circle_times)
@@ -107,11 +118,7 @@ while (time.perf_counter() - t0) < total_time:
 
     ue_pos = mav.uavPosNED
     msg = {
-        "type": "step",
-        "k": k,
-        "dt": DT,
-        "t": t_cmd,
-        "pos": [ue_pos[0] - local_n, ue_pos[1] - local_e, height_z - spos[2]],
+        "pos": [ue_pos[0] - local_n, ue_pos[1] - local_e, ue_pos[2] - spos[2]],
         "att_deg": mav.uavAngEular[:],
         "ts": time.time(),
     }
@@ -139,9 +146,31 @@ while (time.perf_counter() - t0) < total_time:
     if sleep_s > 0:
         time.sleep(sleep_s)
 
-SendRealPosNED(local_n, local_e, height_z + spos[2], 0)
-
 _flush_fc()
+
+SendRealPosNED(local_n, local_e, height_z + spos[2], 0)
+t_land = 3.0
+for _ in range(int(t_land / DT)):
+    ue_pos = mav.uavPosNED
+    ue_z = ue_pos[2] - spos[2]
+    msg = {
+        "pos": [ue_pos[0] - local_n, ue_pos[1] - local_e, ue_z],
+        "att_deg": mav.uavAngEular[:],
+        "ts": time.time(),
+    }
+    sock.sendto(json.dumps(msg).encode("utf-8"), (TARGET_UDP_IP, TARGET_UDP_PORT))
+    time.sleep(DT)
 
 print("Landing")
 mav.land()
+
+for _ in range(int(10 / DT)):
+    ue_pos = mav.uavPosNED
+    ue_z = ue_pos[2] - spos[2]
+    msg = {
+        "pos": [ue_pos[0] - local_n, ue_pos[1] - local_e, ue_z],
+        "att_deg": mav.uavAngEular[:],
+        "ts": time.time(),
+    }
+    sock.sendto(json.dumps(msg).encode("utf-8"), (TARGET_UDP_IP, TARGET_UDP_PORT))
+    time.sleep(DT)

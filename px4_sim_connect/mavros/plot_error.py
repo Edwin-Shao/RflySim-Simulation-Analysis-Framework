@@ -2,9 +2,10 @@ import json
 import math
 import matplotlib.pyplot as plt
 
-sitl1_JSON = r"D:\code\NIMTE\rflysim\flylog\FC_20260127_sitl1.json"
-hitl1_JSON = r"D:\code\NIMTE\rflysim\flylog\FC_20260126_hitl1.json"
-real1_JSON = r"D:\code\NIMTE\rflysim\flylog\FC_20260126_lidar1.json"
+group_idx = 1
+sitl1_JSON = rf"D:\code\NIMTE\rflysim\flylog\FC_20260129_sitl{group_idx}.json"
+hitl1_JSON = rf"D:\code\NIMTE\rflysim\flylog\FC_20260129_hitl{group_idx}.json"
+real1_JSON = rf"D:\code\NIMTE\rflysim\flylog\FC_20260129_lidar{group_idx}.json"
 
 ROUND_N = 5
 
@@ -58,17 +59,11 @@ def get_xyz(pos):
         return pos[0]
     return pos
 
-def rel_sim(val, minv, maxv):
-    if maxv == minv:
-        return 100.0
-    return (1 - (val - minv) / (maxv - minv)) * 100
-
 def main():
     sitl1 = load(sitl1_JSON)
     hitl1 = load(hitl1_JSON)
     real1 = load(real1_JSON)
 
-    # 按k索引
     hitl1_by_k = {r['k']: r for r in hitl1 if 'k' in r}
     real1_by_k = {r['k']: r for r in real1 if 'k' in r}
 
@@ -221,56 +216,7 @@ def main():
     else:
         print("attitude: some entries missing (att_deg is None)")
 
-    # 总位置误差
-    all_rms = [pos_s_rms, pos_h_rms, pos_r_rms]
-    min_rms = min(all_rms)
-    max_rms = max(all_rms)
-    sitl_sim = rel_sim(pos_s_rms, min_rms, max_rms)
-    hitl_sim = rel_sim(pos_h_rms, min_rms, max_rms)
-    real_sim = rel_sim(pos_r_rms, min_rms, max_rms)
-
-    # x分量
-    all_x = [sdx_rms, hdx_rms, rdx_rms]
-    min_x = min(all_x)
-    max_x = max(all_x)
-    sdx_sim = rel_sim(sdx_rms, min_x, max_x)
-    hdx_sim = rel_sim(hdx_rms, min_x, max_x)
-    rdx_sim = rel_sim(rdx_rms, min_x, max_x)
-
-    # y分量
-    all_y = [sdy_rms, hdy_rms, rdy_rms]
-    min_y = min(all_y)
-    max_y = max(all_y)
-    sdy_sim = rel_sim(sdy_rms, min_y, max_y)
-    hdy_sim = rel_sim(hdy_rms, min_y, max_y)
-    rdy_sim = rel_sim(rdy_rms, min_y, max_y)
-
-    # z分量
-    all_z = [sdz_rms, hdz_rms, rdz_rms]
-    min_z = min(all_z)
-    max_z = max(all_z)
-    sdz_sim = rel_sim(sdz_rms, min_z, max_z)
-    hdz_sim = rel_sim(hdz_rms, min_z, max_z)
-    rdz_sim = rel_sim(rdz_rms, min_z, max_z)
-
-    # 姿态
-    all_att = [att_s_rms, att_h_rms, att_r_rms]
-    min_att = min(all_att)
-    max_att = max(all_att)
-    att_s_sim = rel_sim(att_s_rms, min_att, max_att)
-    att_h_sim = rel_sim(att_h_rms, min_att, max_att)
-    att_r_sim = rel_sim(att_r_rms, min_att, max_att)
-
-    # 打印
-    print(f"sitl1 归一化相似度: {sitl_sim:.2f}%")
-    print(f"hitl1 归一化相似度: {hitl_sim:.2f}%")
-    print(f"real1 归一化相似度: {real_sim:.2f}%")
-    print(f"x分量归一化相似度: sitl1 {sdx_sim:.2f}%  hitl1 {hdx_sim:.2f}%  real1 {rdx_sim:.2f}%")
-    print(f"y分量归一化相似度: sitl1 {sdy_sim:.2f}%  hitl1 {hdy_sim:.2f}%  real1 {rdy_sim:.2f}%")
-    print(f"z分量归一化相似度: sitl1 {sdz_sim:.2f}%  hitl1 {hdz_sim:.2f}%  real1 {rdz_sim:.2f}%")
-    print(f"姿态归一化相似度: sitl1 {att_s_sim:.2f}%  hitl1 {att_h_sim:.2f}%  real1 {att_r_sim:.2f}%")
-
-    # ---------------- 图1：3D + 模长误差 + 姿态误差 ----------------
+    # 图1：3D + 模长误差 + 姿态误差
     fig = plt.figure(figsize=(12, 10))
     gs = fig.add_gridspec(2, 2, height_ratios=[3, 2])
 
@@ -300,9 +246,9 @@ def main():
     ax_pos.legend(loc="upper right")
     ax_pos.text(
         0.02, 0.98,
-        "sitl1 " + fmt_stat(pos_s_mean, pos_s_rms, nd=3) + f"  sim={sitl_sim:.1f}%\n"
-        "hitl1 " + fmt_stat(pos_h_mean, pos_h_rms, nd=3) + f"  sim={hitl_sim:.1f}%\n"
-        "real1 " + fmt_stat(pos_r_mean, pos_r_rms, nd=3) + f"  sim={real_sim:.1f}%",
+        "sitl1 " + fmt_stat(pos_s_mean, pos_s_rms, nd=3) + "\n"
+        "hitl1 " + fmt_stat(pos_h_mean, pos_h_rms, nd=3) + "\n"
+        "real1 " + fmt_stat(pos_r_mean, pos_r_rms, nd=3),
         transform=ax_pos.transAxes,
         va="top", ha="left",
         bbox=dict(boxstyle="round", fc="white", ec="gray", alpha=0.9)
@@ -326,9 +272,9 @@ def main():
     if att_s_valid and att_h_valid and att_r_valid:
         ax_att.text(
             0.02, 0.98,
-            "sitl1 " + fmt_stat(att_s_mean, att_s_rms, nd=3) + f"  sim={att_s_sim:.1f}%\n"
-            "hitl1 " + fmt_stat(att_h_mean, att_h_rms, nd=3) + f"  sim={att_h_sim:.1f}%\n"
-            "real1 " + fmt_stat(att_r_mean, att_r_rms, nd=3) + f"  sim={att_r_sim:.1f}%",
+            "sitl1 " + fmt_stat(att_s_mean, att_s_rms, nd=3) + "\n"
+            "hitl1 " + fmt_stat(att_h_mean, att_h_rms, nd=3) + "\n"
+            "real1 " + fmt_stat(att_r_mean, att_r_rms, nd=3),
             transform=ax_att.transAxes,
             va="top", ha="left",
             bbox=dict(boxstyle="round", fc="white", ec="gray", alpha=0.9)
@@ -336,11 +282,11 @@ def main():
 
     fig.tight_layout()
 
-    # ---------------- 图2：位置 xyz 分量误差 ----------------
+    # 图2：位置 xyz 分量误差 (可选)
     fig_xyz, (ax_x, ax_y, ax_z) = plt.subplots(3, 1, figsize=(12, 8), sharex=True)
     fig_xyz.suptitle("Position component error (m): pos - target")
 
-    def _style_axis(ax, title, ys, yh, yr, st_s, st_h, st_r, sim_s, sim_h, sim_r):
+    def _style_axis(ax, title, ys, yh, yr, st_s, st_h, st_r):
         ax.plot(ks, ys, "b-", linewidth=1.1, label=f"sitl1 {title}")
         ax.plot(ks, yh, "r-", linewidth=1.1, label=f"hitl1 {title}")
         ax.plot(ks, yr, "g-", linewidth=1.1, label=f"real1 {title}")
@@ -351,9 +297,9 @@ def main():
         ax.legend(loc="upper right")
         ax.text(
             0.01, 0.96,
-            f"sitl1 {st_s}  sim={sim_s:.1f}%\n"
-            f"hitl1 {st_h}  sim={sim_h:.1f}%\n"
-            f"real1 {st_r}  sim={sim_r:.1f}%",
+            f"sitl1 {st_s}\n"
+            f"hitl1 {st_h}\n"
+            f"real1 {st_r}",
             transform=ax.transAxes,
             va="top", ha="left",
             bbox=dict(boxstyle="round", fc="white", ec="gray", alpha=0.9)
@@ -364,24 +310,21 @@ def main():
         s_dx, h_dx, r_dx,
         fmt_stat(sdx_mean, sdx_rms, nd=3),
         fmt_stat(hdx_mean, hdx_rms, nd=3),
-        fmt_stat(rdx_mean, rdx_rms, nd=3),
-        sdx_sim, hdx_sim, rdx_sim
+        fmt_stat(rdx_mean, rdx_rms, nd=3)
     )
     _style_axis(
         ax_y, "dy = y - y_target",
         s_dy, h_dy, r_dy,
         fmt_stat(sdy_mean, sdy_rms, nd=3),
         fmt_stat(hdy_mean, hdy_rms, nd=3),
-        fmt_stat(rdy_mean, rdy_rms, nd=3),
-        sdy_sim, hdy_sim, rdy_sim
+        fmt_stat(rdy_mean, rdy_rms, nd=3)
     )
     _style_axis(
         ax_z, "dz = z - z_target",
         s_dz, h_dz, r_dz,
         fmt_stat(sdz_mean, sdz_rms, nd=3),
         fmt_stat(hdz_mean, hdz_rms, nd=3),
-        fmt_stat(rdz_mean, rdz_rms, nd=3),
-        sdz_sim, hdz_sim, rdz_sim
+        fmt_stat(rdz_mean, rdz_rms, nd=3)
     )
 
     ax_z.set_xlabel("k (step)")

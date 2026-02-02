@@ -1,1 +1,3 @@
 *.json
+*.xlsx
+px4_sim_connect/mavsdk/

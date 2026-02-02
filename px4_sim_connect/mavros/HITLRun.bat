@@ -1,5 +1,6 @@
 @ECHO OFF
 
+REM input “~/mavros_run.sh 1” first
 REM Run script as administrator
 NET SESSION >nul 2>&1 || powershell -Command "try {Start-Process cmd -ArgumentList '/c, ""%~f0""' -Verb RunAs} catch {}" && exit /b
 
@@ -45,7 +46,7 @@ REM SET the baudrate for Pixhawk COM
 SET /a BaudRate=921600
 
 REM Set the map, use index or name of the map on CopterSim
-REM e.g., UE4_MAP=1 equals to UE4_MAP=Grasslands
+REM e.g., UE4_MAP=1 equals to UE4_MAP=Grasslands, now UE4_MAP=1 equals to UE4_MAP=cailiaosuo
 SET UE4_MAP=1
 
 REM Set the origin x,y position (m) and yaw angle (degree) at the map
