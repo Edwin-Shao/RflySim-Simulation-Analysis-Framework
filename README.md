@@ -11,6 +11,7 @@
 
 ## 环境依赖
 
+*   **硬件平台**: PX4
 *   **操作系统**: Ubuntu 20.04 LTS (或 WSL2)
 *   **ROS 版本**: ROS Noetic
 *   **仿真平台**: RflySim (Windows)
