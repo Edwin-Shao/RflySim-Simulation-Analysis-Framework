@@ -1,3 +1,17 @@
 *.json
 *.xlsx
 px4_sim_connect/mavsdk/
+*.bat
+build/
+devel/
+log/
+*.so
+*.pyc
+.catkin_workspace
+install/
+*.swp
+*.tmp
+.DS_Store
+*.log
+~$*.xlsx
+*.bash_history

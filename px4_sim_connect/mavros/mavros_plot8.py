@@ -6,14 +6,14 @@ import json
 import os
 from datetime import datetime
 
-TARGET_UDP_IP = "127.0.0.1"
-# TARGET_UDP_IP = "192.168.3.20"
+TARGET_UDP_IP = "127.0.0.1" # WSL
+# TARGET_UDP_IP = "192.168.3.20" # UBUNTU
 TARGET_UDP_PORT = 16520
-LOG_DIR = r"/mnt/d/code/NIMTE/rflysim/flylog"
-# LOG_DIR = os.path.expanduser("~/rsim_ws/log")
+LOG_DIR = r"/mnt/d/code/NIMTE/rflysim/flylog" # WSL
+# LOG_DIR = os.path.expanduser("~/rsim_ws/log") # UBUNTU
 SAVE_EVERY_S = 5.0
 
-DT = 0.02
+DT = 0.02 # 发送间隔 1/HZ
 k = 0
 parameter_a = 3.0 # 北向半径
 parameter_b = 2.0 # 东向半径
@@ -27,12 +27,15 @@ mav = PX4MavCtrl.PX4MavCtrler()
 time.sleep(1)
 
 os.makedirs(LOG_DIR, exist_ok=True)
-tag = datetime.now().strftime("%Y%m%d_%H%M%S")
+tag = datetime.now().strftime("%Y%m%d_%H%M%S") # 最后手动命名格式为 %Y%m%d_sitl{group_idx}
 fc_path = os.path.join(LOG_DIR, f"FC_{tag}.json")
 fc_log = []
 _last_save = time.time()
 
 def _flush_fc():
+    """
+    保存日志
+    """
     with open(fc_path, "w", encoding="utf-8") as f:
         json.dump(fc_log, f, ensure_ascii=False, indent=2)
     print(f"[saved] FC:{len(fc_log)} -> {fc_path}")
@@ -55,7 +58,7 @@ def generate8(center_n, center_e, radius_a, radius_b, t, period):
 
 def SendRealPosNED(n, e, d, yaw):
     """
-    发送真实位置指令）
+    发送真实位置指令:修改库中错误发送坐标
     :param n: 北坐标
     :param e: 东坐标
     :param d: 地坐标

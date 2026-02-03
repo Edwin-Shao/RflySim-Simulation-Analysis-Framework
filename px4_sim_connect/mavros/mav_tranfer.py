@@ -40,7 +40,7 @@ try:
         if ts is not None:
             delay = time.time() - ts
             delays.append(delay)
-            print(f"Delay: {delay*1000:.1f} ms")
+            print(f"Delay: {delay*1000:.1f} ms,msg:{msg},time:{time.time()}")
         
         target = msg.get("pos", [0.0, 0.0, 0.0])
         posE = target[:3]
