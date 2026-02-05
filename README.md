@@ -1,57 +1,57 @@
 # RflySim Simulation Analysis Framework
 
-基于 RflySim 平台开发的无人机仿真与实飞实验基本框架，实现飞行控制仿真、实飞数据采集以及仿真与实飞的一致性评估。
+A basic framework for UAV simulation and real-flight experiments based on the RflySim platform, enabling flight control simulation, real-flight data acquisition, and consistency evaluation between simulation and real flight.
 
-## 项目简介
+## Project Overview
 
-本项目提供了一套完整的工具链，用于：
-1.  **飞行控制**：利用 MAVROS 实现精确的无人机轨迹控制。
-2.  **仿真对接**：通过 MAVLink 协议与 RflySim 仿真平台无缝交互。
-3.  **数据分析**：可视化飞行轨迹误差，并定量计算仿真与实飞数据的一致性。
+This project provides a complete toolchain for:
+1.  **Flight Control**: Precise UAV trajectory control using MAVROS.
+2.  **Simulation Integration**: Seamless interaction with the RflySim simulation platform via MAVLink protocol for digital twin applications.
+3.  **Data Analysis**: Visualization of flight trajectory errors and quantitative evaluation of consistency between simulation and real-flight data.
 
-## 环境依赖
+## Environment Dependencies
 
-*   **硬件平台**: PX4
-*   **操作系统**: Ubuntu 20.04 LTS (或 WSL2)
-*   **ROS 版本**: ROS Noetic
-*   **仿真平台**: RflySim (Windows)
-*   **依赖库**:
+*   **Hardware Platform**: PX4
+*   **Operating System**: Ubuntu 20.04 LTS (or WSL2)
+*   **ROS Version**: ROS Noetic
+*   **Simulation Platform**: RflySim (Windows)
+*   **Dependencies**:
     *   `mavros`
     *   `rospy`
     *   `matplotlib`
     *   `pandas`
 
-## 模块说明
+## Module Description
 
-### 1. 核心控制 (`mavros_plog8`)
-负责控制无人机飞行轨迹的核心模块。
-*   基于 `mavros` 接口开发。
-*   通过 RflySim 提供的接口与仿真环境通信。
+### 1. Core Control (`mavros_plog8`)
+Responsible for controlling UAV flight trajectories.
+*   Developed based on the `mavros` interface.
+*   Communicates with the simulation environment via RflySim interfaces.
 
-### 2. 数据转发 (`mav_transfer`)
-负责数据链路的转发与桥接。
-*   确保 ROS 环境与 RflySim Windows 端的数据互通。
+### 2. Data Forwarding (`mav_transfer`)
+Handles data link forwarding and bridging.
+*   Ensures data interoperability between the ROS environment and RflySim on Windows, enabling digital twin.
 
-### 3. 可视化分析 (`plot_error`)
-轨迹与误差可视化工具。
-*   绘制期望轨迹与实际轨迹的对比图。
-*   离线展示位置与姿态误差。
+### 3. Visualization & Analysis (`plot_error`)
+Trajectory and error visualization tool.
+*   Plots comparison charts of desired and actual trajectories.
+*   Offline visualization of position and attitude errors.
 
-### 4. 一致性评估 (`calculate_group_data`)
-仿真与实飞一致性计算模块。
-*   处理飞行日志数据。
-*   计算关键指标（如均方根误差 RMSE 等）。
-*   自动导出分析结果至 Excel 报表。
+### 4. Consistency Evaluation (`calculate_group_data`)
+Module for evaluating consistency between simulation and real flight.
+*   Processes flight log data.
+*   Calculates key metrics (e.g., RMSE).
+*   Automatically exports analysis results to Excel reports.
 
-### 5. 辅助工具 (`bat`)
-*   包含一系列 Windows 批处理脚本，用于一键快速启动 RflySim 仿真场景及相关服务。
+### 5. Auxiliary Tools (`bat`)
+*   Includes a series of Windows batch scripts for one-click startup of RflySim simulation scenarios and related services.
 
-## 快速开始
+## Quick Start
 
-> **前置条件**：请确保您已在 Ubuntu/WSL 系统中安装 **ROS Noetic**，并在 Windows 系统中安装 **RflySim** 仿真平台。
+> **Prerequisites**: Please ensure **ROS Noetic** is installed on Ubuntu/WSL, and **RflySim** is installed on Windows.
 
-### 启动仿真
-运行启动脚本，初始化 RflySim 场景。
+### Start Simulation
+Run the startup scripts to initialize the RflySim scenario.
 ```bash
 SITLRunROS.bat # Run SITL in Windows
 
@@ -59,15 +59,25 @@ HTTLRun.bat # Run HITL in Windows
 ~/mavros_run.sh 1 # Run mavros in WSL
 ```
 
-### 运行控制节点 (Ubuntu/WSL)
+### Run Forwarding Node (Windows)
 ```bash
-python3 mavros_plog8.py
+python3 mav_transfer.py
 ```
 
-## 参考文档
-*   [RflySim 官方文档](https://www.rflysim.com/)
-*   [MAVROS 文档](http://wiki.ros.org/mavros)
-*   [PX4 开源项目](https://px4.io/)
+### Run Control Node (Ubuntu/WSL)
+```bash
+python3 mavros_plot8.py
+```
+### Analysis (Windows)
+```bash
+python3 calculate_group_data.py
+python3 plot_error.py
+```
+
+## References
+*   [RflySim Official Documentation](https://www.rflysim.com/)
+*   [MAVROS Documentation](http://wiki.ros.org/mavros)
+*   [PX4 Open Source Project](https://px4.io/)
 
 ## License
 MIT License
